@@ -11,29 +11,94 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 🌌 STYLING OVERRIDES FOR PROFESSIONAL VISIBILITY ---
+# --- 🌌 COMPREHENSIVE TEXT VISIBILITY & FRAMEWORK OVERRIDE ---
 st.markdown(
     """
     <style>
-    .stApp { background-color: #0b081a !important; }
-    h1, h2, h3, h4, h5, h6, label, p, span { color: #f1ecff !important; }
-    [data-testid="stForm"] {
-        background-color: #120e2b !important; border: 2px solid #5a3d96 !important; border-radius: 12px !important; padding: 20px !important;
+    /* Direct block background canvas override to deep space navy */
+    .stApp { 
+        background-color: #0b081a !important; 
     }
-    input[type="text"], .stNumberInput input {
-        color: #ffffff !important; background-color: #1b163d !important; border: 1px solid #7d5bb5 !important; font-weight: 600 !important;
-    }
-    button[data-testid="baseButton-formSubmit"] {
-        background: linear-gradient(90deg, #4b1a8a 0%, #6622cc 100%) !important; color: #ffffff !important; font-weight: bold !important;
-    }
-    button[data-testid="baseButton-formSubmit"]:hover { box-shadow: 0 0 15px rgba(179, 136, 255, 0.7) !important; }
     
-    .summary-card {
-        background-color: #19143a !important; border-left: 5px solid #00ffff !important; padding: 20px !important; border-radius: 12px !important; margin-bottom: 20px !important;
+    /* Global high-visibility text color rules */
+    h1, h2, h3, h4, h5, h6, label, p, span { 
+        color: #f1ecff !important; 
     }
-    /* 🌟 Labor Strategy Alert Box Styles */
+    
+    /* Clean, high-contrast input form layout box outline */
+    [data-testid="stForm"] {
+        background-color: #120e2b !important; 
+        border: 2px solid #5a3d96 !important; 
+        border-radius: 12px !important; 
+        padding: 20px !important;
+    }
+    
+    /* Input field box accent boundaries */
+    input[type="text"], .stNumberInput input {
+        color: #ffffff !important; 
+        background-color: #1b163d !important; 
+        border: 1px solid #7d5bb5 !important; 
+        font-weight: 600 !important;
+    }
+    
+    /* Primary form optimization dispatch button theme */
+    button[data-testid="baseButton-formSubmit"] {
+        background: linear-gradient(90deg, #4b1a8a 0%, #6622cc 100%) !important; 
+        color: #ffffff !important; 
+        font-weight: bold !important;
+    }
+    
+    button[data-testid="baseButton-formSubmit"]:hover { 
+        box-shadow: 0 0 15px rgba(179, 136, 255, 0.7) !important; 
+    }
+    
+    /* Structured overview dashboard banner cards */
+    .summary-card {
+        background-color: #19143a !important; 
+        border-left: 5px solid #00ffff !important; 
+        padding: 20px !important; 
+        border-radius: 12px !important; 
+        margin-bottom: 20px !important;
+    }
+    
+    /* Shift labor strategy planning notification boxes */
     .labor-card {
-        background-color: #1e1b4b !important; border: 2px solid #6366f1 !important; padding: 20px !important; border-radius: 12px !important; margin-bottom: 20px !important;
+        background-color: #1e1b4b !important; 
+        border: 2px solid #6366f1 !important; 
+        padding: 20px !important; 
+        border-radius: 12px !important; 
+        margin-bottom: 20px !important;
+    }
+    
+    /* 🎨 FIXED: TARGET EXCEL EXPORT BUTTON GRADIATION & TEXT VISIBILITY OVERRIDES */
+    div[data-testid="stDownloadButton"] a {
+        background: linear-gradient(90deg, #2e7d32 0%, #4caf50 100%) !important; /* Rich Light Green Gradient */
+        color: #ffffff !important; /* High-contrast white label text */
+        border: 1px solid #81c784 !important; /* Soft green outline stroke */
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        text-decoration: none !important; /* Clears anchor default underline text decoration */
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 10px 24px !important;
+        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+        transition: all 0.3s ease-in-out !important;
+    }
+    
+    /* Lock internal nested text containers inside download buttons to stay white */
+    div[data-testid="stDownloadButton"] a p, 
+    div[data-testid="stDownloadButton"] a span,
+    div[data-testid="stDownloadButton"] a font {
+        color: #ffffff !important;
+    }
+
+    /* Active hover animation transitions */
+    div[data-testid="stDownloadButton"] a:hover {
+        background: linear-gradient(90deg, #1b5e20 0%, #388e3c 100%) !important; /* Deepening green hover state */
+        border-color: #a5d6a7 !important;
+        box-shadow: 0 6px 18px rgba(76, 175, 80, 0.6) !important;
+        transform: translateY(-2px) !important; /* Premium lift animation effect */
     }
     </style>
     """,
@@ -65,17 +130,14 @@ with tab2:
     st.write("### 📊 Step 1: Shift Target Inventory Volume Planner")
     st.write("Input today's processing volumes to calculate target headcounts based on standard operational rates (180 units/hr for 10 hours).")
     
-    # 🌟 NEW ELEMENT: LIVE INVENTORY CALCULATOR
     st_col1, st_col2 = st.columns(2)
     with st_col1:
         target_stow_volume = st.number_input("Target Stow Inventory Volume (Units):", min_value=0, max_value=200000, value=90000, step=5000)
     with st_col2:
         vto_action = st.radio("Surplus Labor Action Strategy:", options=["Prioritise Picking Department Reallocation 📊", "Raise VTO (Voluntary Time Off) 🛑"], index=0)
     
-    # Run Labor Operational Math
-    stower_rate_per_day = 180 * 10 # 1,800 units per shift per person
+    stower_rate_per_day = 180 * 10
     needed_stowers = math.ceil(target_stow_volume / stower_rate_per_day)
-    available_pool = 100
     
     st.markdown(
         f"""
@@ -90,7 +152,6 @@ with tab2:
     
     st.divider()
     st.write("### ⚡ Step 2: Configure Indirect Process Headcounts")
-    st.write("Specify your indirect workflow requirements. The engine will automatically distribute the remaining cross-trained staff.")
     
     with st.form("shift_targets_form"):
         col1, col2, col3 = st.columns(3)
@@ -107,11 +168,9 @@ with tab2:
             req_decant = st.number_input("Decant Staff (Max 15):", min_value=0, max_value=15, value=6)
             req_receive = st.number_input("Receive Staff (Max 20):", min_value=0, max_value=20, value=10)
             
-            # The remaining pool is dynamically calculated
             allocated_indirects = req_cubi_pick + req_pal_stow + req_instructor + req_prep + req_puller + req_cubiscan + req_cart + req_decant + req_receive
             max_picking_headroom = max(0, 100 - allocated_indirects)
             
-            # Handle the Picking distribution based on user's target volume constraints
             if needed_stowers + allocated_indirects < 100:
                 recommended_picking = 100 - needed_stowers - allocated_indirects
             else:
@@ -146,11 +205,8 @@ with tab2:
         st.write("### 🔮 Optimized Live Dispatch Schedule")
         
         stow_count = int((st.session_state.current_schedule["Current_Assignment"] == "Stowing").sum())
-        
-        # Calculate surplus parameters dynamically
         surplus_associates = stow_count - needed_stowers
         
-        # Group and pivot data columns
         grouped_tasks = {}
         for associate_id, row in st.session_state.current_schedule.iterrows():
             assignment = row["Current_Assignment"]
@@ -158,10 +214,8 @@ with tab2:
                 grouped_tasks[assignment] = []
             grouped_tasks[assignment].append(associate_id)
         
-                # Handle labor balance output notifications if people exceed the required target count
         if surplus_associates > 0:
             if "Picking" in vto_action:
-                # Action: Reallocate surplus Stowers directly to the Picking department field
                 surplus_to_move = min(surplus_associates, 30 - req_picking)
                 if surplus_to_move > 0:
                     st.warning(f"⚠️ Labor Surplus Detected: You have {surplus_associates} extra Stowers over your target capacity. Strategy Triggered: Reallocating **{surplus_to_move} cross-trained Stowers** straight to the **Picking Department** queue.")
@@ -173,7 +227,6 @@ with tab2:
                             grouped_tasks["Picking"].append(name)
                     stow_count -= surplus_to_move
             else:
-                # Action: Flag them for Voluntary Time Off (VTO)
                 st.info(f"🛑 Labor Surplus Detected: Target volume requires {needed_stowers} Stowers, but you have {stow_count} scheduled. Strategy Triggered: Flagging **{surplus_associates} associates** for **Voluntary Time Off (VTO)** options.")
                 if "VTO Eligible / Standby" not in grouped_tasks:
                     grouped_tasks["VTO Eligible / Standby"] = []
@@ -183,7 +236,6 @@ with tab2:
                         grouped_tasks["VTO Eligible / Standby"].append(name)
                 stow_count -= surplus_associates
 
-        # Pad shorter columns with empty spaces so they align perfectly into a grid matrix
         max_len = max(len(associates) for associates in grouped_tasks.values()) if grouped_tasks else 0
         balanced_columns = {}
         for task, associates in grouped_tasks.items():
@@ -191,7 +243,6 @@ with tab2:
 
         task_directory_df = pd.DataFrame(balanced_columns)
 
-        # RENDER SUMMARY OVERVIEW CARD WITH INTEGRATED DOWNLOAD TRIGGER HUB
         sum_col, btn_col = st.columns(2)
         with sum_col:
             st.markdown(
@@ -223,16 +274,15 @@ with tab2:
             st.dataframe(task_directory_df, width="stretch", height=400)
         with c2:
             st.write("#### 📊 Final Shift Headcount Deployment")
-            # Recalculate counts accurately based on the shifted data categories
             final_flat_list = []
             for t, names in grouped_tasks.items():
                 for name in names:
                     if name != "": 
                         final_flat_list.append(t)
             
-            # Render a vertical column bar chart indexed explicitly by Task headings
             chart_data = pd.DataFrame({"Task": final_flat_list}).value_counts().reset_index(name="Associate Headcount")
             st.bar_chart(data=chart_data, x="Task", y="Associate Headcount")
 
 st.divider()
 st.caption("Powered by Google Gemini 3.8 Flash & Your Custom Shift Supervisor Local Engine.")
+
