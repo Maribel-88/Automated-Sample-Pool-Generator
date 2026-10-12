@@ -82,8 +82,18 @@ def allocate_shift_tasks(roster_df: pd.DataFrame, targets: dict) -> pd.DataFrame
     return working_df
 
 def convert_df_to_excel(df: pd.DataFrame) -> bytes:
-    """Converts a DataFrame into raw Excel binary bytes for download tracking."""
+    """Converts a pivoted DataFrame into raw Excel binary bytes for download tracking."""
     output = io.BytesIO()
+    # Writes the clean layout sheet natively using openpyxl properties
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Shift_Assignments')
+        df.to_excel(writer, index=False, sheet_name='Shift_Directory')
+        
+        # Access the openpyxl worksheet under the hood to autofit cell widths for names
+        workbook = writer.book
+        worksheet = writer.sheets['Shift_Directory']
+        for col in worksheet.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = col[0].column_letter
+            worksheet.column_dimensions[col_letter].width = max(max_len + 3, 15)
+            
     return output.getvalue()
