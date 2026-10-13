@@ -184,7 +184,7 @@ with tab2:
                 for associate in matched_associates:
                     assigned_job = st.session_state.current_schedule.at[associate, "Current_Assignment"]
                     
-                    # Style different departments with matching colored banners
+                                       # Style different departments with matching colored banners
                     if assigned_job == "Stowing":
                         st.info(f"📋 **{associate}** is currently locked onto active **STOWING** operations lines.")
                     elif assigned_job == "Picking":
@@ -193,6 +193,34 @@ with tab2:
                         st.error(f"🛑 **{associate}** is currently flagged as **VTO ELIGIBLE / STANDBY** status.")
                     else:
                         st.success(f"✨ **{associate}** is dispatched to Indirect Process: **{assigned_job.upper()}**.")
+                    
+                    # 🌟 NEW OVERRIDE SUBSYSTEM: MANUAL TASK REASSIGNMENT WIDGET
+                    with st.expander(f"⚙️ Reallocate / Change Task for {associate}"):
+                        new_job_selection = st.selectbox(
+                            f"Select New Task Target for {associate}:",
+                            options=[
+                                "Stowing", "Picking", "Cubiscan", "Cubiscan Picking", 
+                                "Decant", "Receive", "Prep", "Pallet Puller", 
+                                "Pallet Stower", "Cart Builder", "Instructor"
+                            ],
+                            index=[
+                                "Stowing", "Picking", "Cubiscan", "Cubiscan Picking", 
+                                "Decant", "Receive", "Prep", "Pallet Puller", 
+                                "Pallet Stower", "Cart Builder", "Instructor"
+                            ].index(assigned_job) if assigned_job in [
+                                "Stowing", "Picking", "Cubiscan", "Cubiscan Picking", 
+                                "Decant", "Receive", "Prep", "Pallet Puller", 
+                                "Pallet Stower", "Cart Builder", "Instructor"
+                            ] else 0,
+                            key=f"reassign_select_{associate}"
+                        )
+                        
+                        if st.button(f"Confirm Task Override for {associate} ⚡", key=f"reassign_btn_{associate}", use_container_width=True):
+                            # Force the specific cell inside our session state schedule matrix to update instantly
+                            st.session_state.current_schedule.at[associate, "Current_Assignment"] = new_job_selection
+                            st.success(f"✅ Success! {associate} has been manually reallocated to **{new_job_selection.upper()}**.")
+                            st.rerun() # Refresh the page to update the tables and Excel export instantly!
+
             else:
                 st.error("❌ No matching associate found in the active shift roster. Check spelling or ID format.")
         
