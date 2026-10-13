@@ -161,11 +161,44 @@ with tab2:
             st.session_state.current_schedule = optimized_schedule
         st.success("✅ Shift Assignment Schedule Generated Instantly!")
 
-    # If an optimization run exists, render the live dispatch results
+        # If an optimization run exists, render the live dispatch results
     if st.session_state.current_schedule is not None:
         st.divider()
         st.write("### 🔮 Optimized Live Dispatch Schedule")
         
+        # 🌟 NEW FEATURE LAYER: INTERACTIVE ASSOCIATE SEARCH ROSTER TRACKER
+        st.write("#### 🔍 Live Associate Assignment Finder")
+        search_query = st.text_input(
+            "Quick-Search Associate Assignment:", 
+            placeholder="Type Name or ID number... (e.g., Associate 045)"
+        ).strip()
+        
+        if search_query:
+            # Match search queries case-insensitively across row indexes
+            matched_associates = [
+                idx for idx in st.session_state.current_schedule.index 
+                if search_query.lower() in idx.lower()
+            ]
+            
+            if matched_associates:
+                for associate in matched_associates:
+                    assigned_job = st.session_state.current_schedule.at[associate, "Current_Assignment"]
+                    
+                    # Style different departments with matching colored banners
+                    if assigned_job == "Stowing":
+                        st.info(f"📋 **{associate}** is currently locked onto active **STOWING** operations lines.")
+                    elif assigned_job == "Picking":
+                        st.warning(f"📊 **{associate}** has been cross-routed to the **PICKING** department queue.")
+                    elif "VTO" in assigned_job:
+                        st.error(f"🛑 **{associate}** is currently flagged as **VTO ELIGIBLE / STANDBY** status.")
+                    else:
+                        st.success(f"✨ **{associate}** is dispatched to Indirect Process: **{assigned_job.upper()}**.")
+            else:
+                st.error("❌ No matching associate found in the active shift roster. Check spelling or ID format.")
+        
+        st.divider()
+        
+        # Calculation metrics summary-card logic
         stow_count = int((st.session_state.current_schedule["Current_Assignment"] == "Stowing").sum())
         surplus_associates = stow_count - needed_stowers
         
@@ -210,7 +243,7 @@ with tab2:
             st.markdown(
                 f"""
                 <div class="summary-card" style="margin-bottom:0;">
-                    <h4 style='margin:0 0 5px 0; color:#00ffff !important;'>📋 SHIFT DEPLOYVIEW OVERVIEW</h4>
+                    <h4 style='margin:0 0 5px 0; color:#00ffff !important;'>📋 SHIFT DEPLOYMENT OVERVIEW</h4>
                     <p style='margin:0; color:#ffffff !important;'><b>100 Associates</b> successfully routed. 
                     Target volume balanced. <b>{stow_count} Associates</b> locked onto active <b>Stowing lines</b>.</p>
                 </div>
