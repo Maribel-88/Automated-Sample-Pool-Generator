@@ -4,7 +4,6 @@ import pandas as pd
 import math
 from datetime import datetime
 from roster_engine import generate_sample_warehouse_roster, allocate_shift_tasks, convert_df_to_excel
-from ai_agent import handle_warehouse_queries, handle_warehouse_commands
 
 st.set_page_config(
     page_title="TeamLead AI - Warehouse Roster Agent",
@@ -12,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 🌌 MASTER GLOBAL STYLE DIRECTORY ---
+# --- 🌌 GLOBAL THEME OVERRIDES ---
 st.markdown(
     """
     <style>
@@ -35,21 +34,18 @@ st.markdown(
     div[data-testid="stDownloadButton"] button:hover { background: linear-gradient(90deg, #1b5e20 0%, #388e3c 100%) !important; border-color: #a5d6a7 !important; box-shadow: 0 6px 18px rgba(76, 175, 80, 0.6) !important; }
     .summary-card { background-color: #19143a !important; border-left: 5px solid #00ffff !important; padding: 20px !important; border-radius: 12px !important; margin-bottom: 20px !important; }
     .labor-card { background-color: #1e1b4b !important; border: 2px solid #6366f1 !important; padding: 20px !important; border-radius: 12px !important; margin-bottom: 20px !important; }
-    .ai-response-box { background-color: #0e1e38 !important; border-left: 5px solid #bd93f9 !important; padding: 18px !important; border-radius: 8px !important; margin: 15px 0 !important; }
     </style>
     """,
     unsafe_allow_html=True
 )
 
 st.title("📦 TeamLead AI: Warehouse Roster Dispatcher")
-st.subheader("Automated Cross-Training & Conversational AI Agent")
+st.subheader("Automated Cross-Training & 2-Day Consecutive Task Rotation Guard")
 
 if "warehouse_roster" not in st.session_state:
     st.session_state.warehouse_roster = generate_sample_warehouse_roster()
 if "current_schedule" not in st.session_state:
     st.session_state.current_schedule = None
-if "ai_response_log" not in st.session_state:
-    st.session_state.ai_response_log = None
 
 if "targets" not in st.session_state:
     st.session_state.targets = {
@@ -67,11 +63,9 @@ with tab1:
     skill_counts = st.session_state.warehouse_roster.drop(columns=["Current_Assignment"]).sum()
     st.bar_chart(skill_counts)
 
-# ================= TAB 2: OPERATIONAL WORKFLOW DISPATCH =================
+# ================= TAB 2 =================
 with tab2:
     st.write("### 📊 Step 1: Shift Target Inventory Volume Planner")
-    st.write("Input today's processing volumes to calculate target headcounts based on standard operational rates (180 units/hr for 10 hours).")
-    
     st_col1, st_col2 = st.columns(2)
     with st_col1:
         target_stow_volume = st.number_input("Target Stow Inventory Volume (Units):", min_value=0, max_value=200000, value=90000, step=5000)
@@ -94,8 +88,50 @@ with tab2:
     
     st.divider()
     
-    # 🌟 CLEAN & STABLE: RECONFIGURED STEP 2 TO RAW ALLOCATION MATRIX INPUT FIELDS WITHOUT AI INTERFERENCE
-    st.write("### ⚡ Step 2: Configure & Run Headcount Allocation Matrix")
+    # 🌟 NEW ELEMENT: HISTORICAL UPLOAD ROTATION BLOCKED DRAWER
+    st.write("### ⏳ Step 2: 2-Day Consecutive Task Rotation Safety Gate (Optional)")
+    st.write("To prevent associates from doing the same indirect task for more than 2 consecutive days, drop yesterday's and the day before yesterday's exported shift Excel files below.")
+    
+    hist_col1, hist_col2 = st.columns(2)
+    blocklist = {}
+    
+    with hist_col1:
+        file_day1 = st.file_uploader("Upload Yesterday's Exported Schedule (Day -1):", type=["xlsx"], key="hist_day_1")
+    with hist_col2:
+        file_day2 = st.file_uploader("Upload Day Before Yesterday's Schedule (Day -2):", type=["xlsx"], key="hist_day_2")
+        
+    if file_day1 and file_day2:
+        try:
+            df_day1 = pd.read_excel(file_day1)
+            df_day2 = pd.read_excel(file_day2)
+            
+            # Extract historical paths by reverse-pivoting column arrays back to flat metrics rows
+            history_maps = {}
+            for df in [df_day1, df_day2]:
+                for task_col in df.columns:
+                    # Ignore VTO standby pools from the rotation constraints limits
+                    if "VTO" in task_col:
+                        continue
+                    for worker in df[task_col].dropna().astype(str):
+                        if worker.strip() and "Associate" in worker:
+                            if worker not in history_maps: 
+                                history_maps[worker] = []
+                            history_maps[worker].append(task_col)
+            
+            # Identify associates who worked the identical indirect task on BOTH days
+            for worker, tasks in history_maps.items():
+                if len(tasks) >= 2 and tasks[0] == tasks[1] and tasks[0] != "Stowing":
+                    blocklist[worker] = tasks[0]
+            
+            if blocklist:
+                st.warning(f"⚠️ Rotation Guard Activated: Found **{len(blocklist)} associates** who worked the exact same indirect process for 2 consecutive days. They will be strictly blocked from those specific assignments today!")
+            else:
+                st.success("✅ Rotation Check Passed: No associates have exceeded consecutive task limits.")
+        except Exception as e:
+            st.error(f"❌ Error compiling history streams: Verify Excel structure format matches default exports. Details: {e}")
+
+    st.divider()
+    st.write("### ⚡ Step 3: Configure & Run Headcount Allocation Matrix")
     
     with st.form("shift_targets_form"):
         col1, col2, col3 = st.columns(3)
@@ -119,7 +155,7 @@ with tab2:
             req_picking = st.number_input(f"Picking Staff (Max {max_picking_headroom}):", min_value=0, max_value=max_picking_headroom, value=min(recommended_picking, int(st.session_state.targets["Picking"])))
             
         submit_allocations = st.form_submit_button("Optimize Workload Allocations Matrix 🚀", width="stretch")
-        
+
     if submit_allocations:
         st.session_state.targets = {
             "Cubiscan Picking": req_cubi_pick, "Pallet Stower": req_pal_stow, "Instructor": req_instructor,
@@ -127,7 +163,7 @@ with tab2:
             "Cart Builder": req_cart, "Decant": req_decant, "Receive": req_receive, "Picking": req_picking
         }
         with st.spinner("Executing scarcity-first routing logic arrays..."):
-            st.session_state.current_schedule = allocate_shift_tasks(st.session_state.warehouse_roster, st.session_state.targets)
+            st.session_state.current_schedule = allocate_shift_tasks(st.session_state.warehouse_roster, st.session_state.targets, blocklist_dict=blocklist)
         st.success("✅ Shift Assignment Schedule Generated Instantly!")
 
     if st.session_state.current_schedule is not None:
@@ -160,25 +196,20 @@ with tab2:
         grouped_tasks = {}
         for associate_id, row in st.session_state.current_schedule.iterrows():
             assignment = row["Current_Assignment"]
-            if assignment not in grouped_tasks: grouped_tasks[assignment] = []
+            if assignment not in grouped_tasks: 
+                grouped_tasks[assignment] = []
             grouped_tasks[assignment].append(associate_id)
             
-        # 🌟 FIXED: EXACT DIRECT MATCHING FOR EMOB-BASED RADIO STRATEGIES
         if surplus_associates > 0:
             if vto_action == "Prioritise Picking Department Reallocation 📊":
-                # Safely pull cross-trained associates to the Picking line headroom maximum limit
                 surplus_to_move = min(surplus_associates, 30 - req_picking)
-                if surplus_to_move > 0:
-                    st.warning(f"⚠️ Labor Surplus Detected: You have {surplus_associates} extra Stowers over your target capacity. Strategy Triggered: Reallocating **{surplus_to_move} cross-trained Stowers** straight to the **Picking Department** queue.")
-                    for _ in range(surplus_to_move):
-                        if grouped_tasks.get("Stowing") and len(grouped_tasks["Stowing"]) > 0:
-                            if "Picking" not in grouped_tasks: 
-                                grouped_tasks["Picking"] = []
-                            grouped_tasks["Picking"].append(grouped_tasks["Stowing"].pop())
-                    stow_count -= surplus_to_move
+                for _ in range(surplus_to_move):
+                    if grouped_tasks.get("Stowing") and len(grouped_tasks["Stowing"]) > 0:
+                        if "Picking" not in grouped_tasks: 
+                            grouped_tasks["Picking"] = []
+                        grouped_tasks["Picking"].append(grouped_tasks["Stowing"].pop())
+                stow_count -= surplus_to_move
             elif vto_action == "Raise VTO (Voluntary Time Off) 🛑":
-                # Isolate the exact surplus and flag them for the standby exit queue
-                st.info(f"🛑 Labor Surplus Detected: Target volume requires {needed_stowers} Stowers, but you have {stow_count} scheduled. Strategy Triggered: Flagging **{surplus_associates} associates** for **Voluntary Time Off (VTO)** options.")
                 if "VTO Eligible / Standby" not in grouped_tasks: 
                     grouped_tasks["VTO Eligible / Standby"] = []
                 for _ in range(surplus_associates):
@@ -218,4 +249,3 @@ with tab2:
 
 st.divider()
 st.caption("Powered by Your Custom Shift Supervisor Local Engine.")
-
