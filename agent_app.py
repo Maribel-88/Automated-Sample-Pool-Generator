@@ -4,6 +4,7 @@ import pandas as pd
 import math
 from datetime import datetime
 from roster_engine import generate_sample_warehouse_roster, allocate_shift_tasks, convert_df_to_excel
+from ai_agent import handle_warehouse_queries, handle_warehouse_commands
 
 st.set_page_config(
     page_title="TeamLead AI - Warehouse Roster Agent",
@@ -11,90 +12,65 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 🌌 UNIFIED GLOBAL THEME OVERRIDES ---
+# --- 🌌 MASTER GLOBAL STYLE DIRECTORY ---
 st.markdown(
     """
     <style>
-    .stApp { 
-        background-color: #0b081a !important; 
+    .stApp { background-color: #0b081a !important; }
+    h1, h2, h3, h4, h5, h6, label, p, span { color: #f1ecff !important; }
+    [data-testid="stForm"] {
+        background-color: #120e2b !important; border: 2px solid #5a3d96 !important; border-radius: 12px !important; padding: 20px !important;
     }
-    h1, h2, h3, h4, h5, h6, label, p, span { 
-        color: #f1ecff !important; 
-    }
-    
-    /* Input field box accent boundaries */
     input[type="text"], .stNumberInput input {
-        color: #ffffff !important; 
-        background-color: #1b163d !important; 
-        border: 1px solid #7d5bb5 !important; 
-        font-weight: 600 !important;
+        color: #ffffff !important; background-color: #1b163d !important; border: 1px solid #7d5bb5 !important; font-weight: 600 !important;
     }
-    
-    /* 🔮 1. CORE DISPATCH TRIGGER BUTTON CLASS THEME */
     div.element-container button {
-        background: linear-gradient(90deg, #311b92 0%, #6200ea 100%) !important; /* Deep Royal Purple */
-        color: #ffffff !important; 
-        font-weight: 700 !important;
-        border: 1px solid #7c4dff !important;
-        border-radius: 8px !important;
-        height: 45px !important;
-        box-shadow: 0 4px 12px rgba(98, 0, 234, 0.4) !important;
-        transition: all 0.3s ease-in-out !important;
+        background: linear-gradient(90deg, #311b92 0%, #6200ea 100%) !important;
+        color: #ffffff !important; font-weight: 700 !important; border: 1px solid #7c4dff !important; border-radius: 8px !important; height: 45px !important;
+        box-shadow: 0 4px 12px rgba(98, 0, 234, 0.4) !important; transition: all 0.3s ease-in-out !important;
     }
-    div.element-container button p {
-        color: #ffffff !important;
-    }
-    div.element-container button:hover { 
-        background: linear-gradient(90deg, #1a0c67 0%, #4a00b0 100%) !important;
-        border-color: #b388ff !important;
-        box-shadow: 0 6px 18px rgba(98, 0, 234, 0.7) !important;
-    }
-    
-    /* 🎨 2. TARGET EXCEL EXPORT BUTTON SPECIFICS TO LIGHT GREEN */
-    div[data-testid="stDownloadButton"] button {
-        background: linear-gradient(90deg, #2e7d32 0%, #4caf50 100%) !important; /* Rich Light Green Gradient */
-        border: 1px solid #81c784 !important;
-        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
-    }
-    div[data-testid="stDownloadButton"] button:hover {
-        background: linear-gradient(90deg, #1b5e20 0%, #388e3c 100%) !important;
-        border-color: #a5d6a7 !important;
-    }
-    
-    .summary-card {
-        background-color: #19143a !important; border-left: 5px solid #00ffff !important; padding: 20px !important; border-radius: 12px !important; margin-bottom: 20px !important;
-    }
-    .labor-card {
-        background-color: #1e1b4b !important; border: 2px solid #6366f1 !important; padding: 20px !important; border-radius: 12px !important; margin-bottom: 20px !important;
-    }
+    div.element-container button p, div.element-container button span { color: #ffffff !important; }
+    div.element-container button:hover { background: linear-gradient(90deg, #1a0c67 0%, #4a00b0 100%) !important; border-color: #b388ff !important; box-shadow: 0 6px 18px rgba(98, 0, 234, 0.7) !important; transform: translateY(-1px) !important; }
+    div[data-testid="stDownloadButton"] button { background: linear-gradient(90deg, #2e7d32 0%, #4caf50 100%) !important; border: 1px solid #81c784 !important; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important; }
+    div[data-testid="stDownloadButton"] button:hover { background: linear-gradient(90deg, #1b5e20 0%, #388e3c 100%) !important; border-color: #a5d6a7 !important; box-shadow: 0 6px 18px rgba(76, 175, 80, 0.6) !important; }
+    .summary-card { background-color: #19143a !important; border-left: 5px solid #00ffff !important; padding: 20px !important; border-radius: 12px !important; margin-bottom: 20px !important; }
+    .labor-card { background-color: #1e1b4b !important; border: 2px solid #6366f1 !important; padding: 20px !important; border-radius: 12px !important; margin-bottom: 20px !important; }
+    .ai-response-box { background-color: #0e1e38 !important; border-left: 5px solid #bd93f9 !important; padding: 18px !important; border-radius: 8px !important; margin: 15px 0 !important; }
     </style>
     """,
     unsafe_allow_html=True
 )
 
 st.title("📦 TeamLead AI: Warehouse Roster Dispatcher")
-st.subheader("Automated Cross-Training & Labor Target Volume Planner")
+st.subheader("Automated Cross-Training & Conversational AI Agent")
 
 if "warehouse_roster" not in st.session_state:
     st.session_state.warehouse_roster = generate_sample_warehouse_roster()
 if "current_schedule" not in st.session_state:
     st.session_state.current_schedule = None
+if "ai_response_log" not in st.session_state:
+    st.session_state.ai_response_log = None
+
+if "targets" not in st.session_state:
+    st.session_state.targets = {
+        "Cubiscan Picking": 2, "Pallet Stower": 2, "Instructor": 1, "Prep": 3,
+        "Pallet Puller": 3, "Cubiscan": 4, "Cart Builder": 5, "Decant": 6,
+        "Receive": 10, "Picking": 12
+    }
 
 tab1, tab2 = st.tabs(["👥 100-Associate Team Matrix", "⚡ Daily Shift Task Allocation"])
 
-# ================= TAB 1: RENDER THE MASTER POOL =================
+# ================= TAB 1 =================
 with tab1:
     st.write("### Active Associate Training Matrix")
-    st.write("All 100 associates are trained for Stowing. True checkboxes indicate verified advanced cross-training badges.")
     st.dataframe(st.session_state.warehouse_roster, width="stretch", height=400)
-    
-    st.write("### 📊 Skill Badge Inventory Summary")
     skill_counts = st.session_state.warehouse_roster.drop(columns=["Current_Assignment"]).sum()
     st.bar_chart(skill_counts)
 
-# ================= TAB 2: INTAKE TARGETS & RESULTS RUN =================
+# ================= TAB 2: OPERATIONAL WORKFLOW DISPATCH =================
 with tab2:
     st.write("### 📊 Step 1: Shift Target Inventory Volume Planner")
+    st.write("Input today's processing volumes to calculate target headcounts based on standard operational rates (180 units/hr for 10 hours).")
     
     st_col1, st_col2 = st.columns(2)
     with st_col1:
@@ -117,175 +93,114 @@ with tab2:
     )
     
     st.divider()
-    st.write("### ⚡ Step 2: Configure Indirect Process Headcounts")
     
-    # 🌟 REMOVED THE CONFLICTING ST.FORM WRAPPER ENTIRELY
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        req_cubi_pick = st.number_input("Cubiscan Picking Staff (Max 5):", min_value=0, max_value=5, value=2)
-        req_pal_stow = st.number_input("Pallet Stower Staff (Max 5):", min_value=0, max_value=5, value=2)
-        req_instructor = st.number_input("Instructors (Max 5):", min_value=0, max_value=5, value=1)
-        req_prep = st.number_input("Prep Staff (Max 8):", min_value=0, max_value=8, value=3)
-    with col2:
-        req_puller = st.number_input("Pallet Puller Staff (Max 8):", min_value=0, max_value=8, value=3)
-        req_cubiscan = st.number_input("Cubiscan Staff (Max 10):", min_value=0, max_value=10, value=4)
-        req_cart = st.number_input("Cart Builder Staff (Max 10):", min_value=0, max_value=10, value=5)
-    with col3:
-        req_decant = st.number_input("Decant Staff (Max 15):", min_value=0, max_value=15, value=6)
-        req_receive = st.number_input("Receive Staff (Max 20):", min_value=0, max_value=20, value=10)
-        
-        allocated_indirects = req_cubi_pick + req_pal_stow + req_instructor + req_prep + req_puller + req_cubiscan + req_cart + req_decant + req_receive
-        max_picking_headroom = max(0, 100 - allocated_indirects)
-        
-        if needed_stowers + allocated_indirects < 100:
-            recommended_picking = 100 - needed_stowers - allocated_indirects
-        else:
-            recommended_picking = 0
+    # 🌟 CLEAN & STABLE: RECONFIGURED STEP 2 TO RAW ALLOCATION MATRIX INPUT FIELDS WITHOUT AI INTERFERENCE
+    st.write("### ⚡ Step 2: Configure & Run Headcount Allocation Matrix")
+    
+    with st.form("shift_targets_form"):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            req_cubi_pick = st.number_input("Cubiscan Picking Staff:", min_value=0, max_value=5, value=int(st.session_state.targets["Cubiscan Picking"]))
+            req_pal_stow = st.number_input("Pallet Stower Staff:", min_value=0, max_value=5, value=int(st.session_state.targets["Pallet Stower"]))
+            req_instructor = st.number_input("Instructors:", min_value=0, max_value=5, value=int(st.session_state.targets["Instructor"]))
+            req_prep = st.number_input("Prep Staff:", min_value=0, max_value=8, value=int(st.session_state.targets["Prep"]))
+        with col2:
+            req_puller = st.number_input("Pallet Puller Staff:", min_value=0, max_value=8, value=int(st.session_state.targets["Pallet Puller"]))
+            req_cubiscan = st.number_input("Cubiscan Staff:", min_value=0, max_value=10, value=int(st.session_state.targets["Cubiscan"]))
+            req_cart = st.number_input("Cart Builder Staff:", min_value=0, max_value=10, value=int(st.session_state.targets["Cart Builder"]))
+        with col3:
+            req_decant = st.number_input("Decant Staff:", min_value=0, max_value=15, value=int(st.session_state.targets["Decant"]))
+            req_receive = st.number_input("Receive Staff:", min_value=0, max_value=20, value=int(st.session_state.targets["Receive"]))
             
-        req_picking = st.number_input(f"Picking Staff (Max {max_picking_headroom}):", min_value=0, max_value=max_picking_headroom, value=min(recommended_picking, 30))
-        
-    st.write("")
-       # 🔮 STANDARD NATIVE BUTTON LAYER - BYPASSES SHADOW DOM COMPILATION LOCKS
-    submit_allocations = st.button("Optimize Workload Allocations Matrix 🚀", use_container_width=True)
+            allocated_indirects = req_cubi_pick + req_pal_stow + req_instructor + req_prep + req_puller + req_cubiscan + req_cart + req_decant + req_receive
+            max_picking_headroom = max(0, 100 - allocated_indirects)
+            recommended_picking = max(0, 100 - needed_stowers - allocated_indirects) if needed_stowers + allocated_indirects < 100 else 0
+            
+            req_picking = st.number_input(f"Picking Staff (Max {max_picking_headroom}):", min_value=0, max_value=max_picking_headroom, value=min(recommended_picking, int(st.session_state.targets["Picking"])))
+            
+        submit_allocations = st.form_submit_button("Optimize Workload Allocations Matrix 🚀", width="stretch")
         
     if submit_allocations:
-        shift_targets = {
-            "Cubiscan Picking": req_cubi_pick, "Pallet Stower": req_pal_stow,
-            "Instructor": req_instructor, "Prep": req_prep, "Pallet Puller": req_puller,
-            "Cubiscan": req_cubiscan, "Cart Builder": req_cart, "Decant": req_decant,
-            "Receive": req_receive, "Picking": req_picking
+        st.session_state.targets = {
+            "Cubiscan Picking": req_cubi_pick, "Pallet Stower": req_pal_stow, "Instructor": req_instructor,
+            "Prep": req_prep, "Pallet Puller": req_puller, "Cubiscan": req_cubiscan,
+            "Cart Builder": req_cart, "Decant": req_decant, "Receive": req_receive, "Picking": req_picking
         }
-        
         with st.spinner("Executing scarcity-first routing logic arrays..."):
-            optimized_schedule = allocate_shift_tasks(st.session_state.warehouse_roster, shift_targets)
-            st.session_state.current_schedule = optimized_schedule
+            st.session_state.current_schedule = allocate_shift_tasks(st.session_state.warehouse_roster, st.session_state.targets)
         st.success("✅ Shift Assignment Schedule Generated Instantly!")
 
-        # If an optimization run exists, render the live dispatch results
     if st.session_state.current_schedule is not None:
         st.divider()
         st.write("### 🔮 Optimized Live Dispatch Schedule")
         
-        # 🌟 NEW FEATURE LAYER: INTERACTIVE ASSOCIATE SEARCH ROSTER TRACKER
-        st.write("#### 🔍 Live Associate Assignment Finder")
-        search_query = st.text_input(
-            "Quick-Search Associate Assignment:", 
-            placeholder="Type Name or ID number... (e.g., Associate 045)"
-        ).strip()
+        # 🔍 Live Associate Assignment Finder
+        search_query = st.text_input("Quick-Search Associate Assignment:", placeholder="Type Name or ID number...").strip()
         
         if search_query:
-            # Match search queries case-insensitively across row indexes
-            matched_associates = [
-                idx for idx in st.session_state.current_schedule.index 
-                if search_query.lower() in idx.lower()
-            ]
-            
-            if matched_associates:
-                for associate in matched_associates:
+            matched = [idx for idx in st.session_state.current_schedule.index if search_query.lower() in idx.lower()]
+            if matched:
+                for associate in matched:
                     assigned_job = st.session_state.current_schedule.at[associate, "Current_Assignment"]
+                    if assigned_job == "Stowing": st.info(f"📋 **{associate}** is on active **STOWING** lines.")
+                    elif assigned_job == "Picking": st.warning(f"📊 **{associate}** is routed to **PICKING**.")
+                    elif "VTO" in assigned_job: st.error(f"🛑 **{associate}** is flagged for **VTO STANDBY**.")
+                    else: st.success(f"✨ **{associate}** is on **{assigned_job.upper()}**.")
                     
-                                       # Style different departments with matching colored banners
-                    if assigned_job == "Stowing":
-                        st.info(f"📋 **{associate}** is currently locked onto active **STOWING** operations lines.")
-                    elif assigned_job == "Picking":
-                        st.warning(f"📊 **{associate}** has been cross-routed to the **PICKING** department queue.")
-                    elif "VTO" in assigned_job:
-                        st.error(f"🛑 **{associate}** is currently flagged as **VTO ELIGIBLE / STANDBY** status.")
-                    else:
-                        st.success(f"✨ **{associate}** is dispatched to Indirect Process: **{assigned_job.upper()}**.")
-                    
-                    # 🌟 NEW OVERRIDE SUBSYSTEM: MANUAL TASK REASSIGNMENT WIDGET
                     with st.expander(f"⚙️ Reallocate / Change Task for {associate}"):
-                        new_job_selection = st.selectbox(
-                            f"Select New Task Target for {associate}:",
-                            options=[
-                                "Stowing", "Picking", "Cubiscan", "Cubiscan Picking", 
-                                "Decant", "Receive", "Prep", "Pallet Puller", 
-                                "Pallet Stower", "Cart Builder", "Instructor"
-                            ],
-                            index=[
-                                "Stowing", "Picking", "Cubiscan", "Cubiscan Picking", 
-                                "Decant", "Receive", "Prep", "Pallet Puller", 
-                                "Pallet Stower", "Cart Builder", "Instructor"
-                            ].index(assigned_job) if assigned_job in [
-                                "Stowing", "Picking", "Cubiscan", "Cubiscan Picking", 
-                                "Decant", "Receive", "Prep", "Pallet Puller", 
-                                "Pallet Stower", "Cart Builder", "Instructor"
-                            ] else 0,
-                            key=f"reassign_select_{associate}"
-                        )
-                        
-                        if st.button(f"Confirm Task Override for {associate} ⚡", key=f"reassign_btn_{associate}", use_container_width=True):
-                            # Force the specific cell inside our session state schedule matrix to update instantly
-                            st.session_state.current_schedule.at[associate, "Current_Assignment"] = new_job_selection
-                            st.success(f"✅ Success! {associate} has been manually reallocated to **{new_job_selection.upper()}**.")
-                            st.rerun() # Refresh the page to update the tables and Excel export instantly!
+                        new_job = st.selectbox(f"Select New Task:", options=["Stowing", "Picking", "Cubiscan", "Decant", "Receive", "Prep"], key=f"reassign_{associate}")
+                        if st.button(f"Confirm Override ⚡", key=f"btn_{associate}", use_container_width=True):
+                            st.session_state.current_schedule.at[associate, "Current_Assignment"] = new_job
+                            st.rerun()
+            else: 
+                st.error("❌ No matching associate found.")
 
-            else:
-                st.error("❌ No matching associate found in the active shift roster. Check spelling or ID format.")
-        
-        st.divider()
-        
-        # Calculation metrics summary-card logic
         stow_count = int((st.session_state.current_schedule["Current_Assignment"] == "Stowing").sum())
         surplus_associates = stow_count - needed_stowers
-        
         grouped_tasks = {}
         for associate_id, row in st.session_state.current_schedule.iterrows():
             assignment = row["Current_Assignment"]
-            if assignment not in grouped_tasks:
-                grouped_tasks[assignment] = []
+            if assignment not in grouped_tasks: grouped_tasks[assignment] = []
             grouped_tasks[assignment].append(associate_id)
-        
+            
+        # 🌟 FIXED: EXACT DIRECT MATCHING FOR EMOB-BASED RADIO STRATEGIES
         if surplus_associates > 0:
-            if "Picking" in vto_action:
+            if vto_action == "Prioritise Picking Department Reallocation 📊":
+                # Safely pull cross-trained associates to the Picking line headroom maximum limit
                 surplus_to_move = min(surplus_associates, 30 - req_picking)
                 if surplus_to_move > 0:
                     st.warning(f"⚠️ Labor Surplus Detected: You have {surplus_associates} extra Stowers over your target capacity. Strategy Triggered: Reallocating **{surplus_to_move} cross-trained Stowers** straight to the **Picking Department** queue.")
                     for _ in range(surplus_to_move):
-                        if grouped_tasks.get("Stowing"):
-                            name = grouped_tasks["Stowing"].pop()
+                        if grouped_tasks.get("Stowing") and len(grouped_tasks["Stowing"]) > 0:
                             if "Picking" not in grouped_tasks: 
                                 grouped_tasks["Picking"] = []
-                            grouped_tasks["Picking"].append(name)
+                            grouped_tasks["Picking"].append(grouped_tasks["Stowing"].pop())
                     stow_count -= surplus_to_move
-            else:
+            elif vto_action == "Raise VTO (Voluntary Time Off) 🛑":
+                # Isolate the exact surplus and flag them for the standby exit queue
                 st.info(f"🛑 Labor Surplus Detected: Target volume requires {needed_stowers} Stowers, but you have {stow_count} scheduled. Strategy Triggered: Flagging **{surplus_associates} associates** for **Voluntary Time Off (VTO)** options.")
-                if "VTO Eligible / Standby" not in grouped_tasks:
+                if "VTO Eligible / Standby" not in grouped_tasks: 
                     grouped_tasks["VTO Eligible / Standby"] = []
                 for _ in range(surplus_associates):
-                    if grouped_tasks.get("Stowing"):
-                        name = grouped_tasks["Stowing"].pop()
-                        grouped_tasks["VTO Eligible / Standby"].append(name)
+                    if grouped_tasks.get("Stowing") and len(grouped_tasks["Stowing"]) > 0: 
+                        grouped_tasks["VTO Eligible / Standby"].append(grouped_tasks["Stowing"].pop())
                 stow_count -= surplus_associates
 
         max_len = max(len(associates) for associates in grouped_tasks.values()) if grouped_tasks else 0
-        balanced_columns = {}
-        for task, associates in grouped_tasks.items():
-            balanced_columns[task] = associates + [""] * (max_len - len(associates))
-
+        balanced_columns = {t: acc + [""] * (max_len - len(acc)) for t, acc in grouped_tasks.items()}
         task_directory_df = pd.DataFrame(balanced_columns)
 
         sum_col, btn_col = st.columns(2)
-        with sum_col:
-            st.markdown(
-                f"""
-                <div class="summary-card" style="margin-bottom:0;">
-                    <h4 style='margin:0 0 5px 0; color:#00ffff !important;'>📋 SHIFT DEPLOYMENT OVERVIEW</h4>
-                    <p style='margin:0; color:#ffffff !important;'><b>100 Associates</b> successfully routed. 
-                    Target volume balanced. <b>{stow_count} Associates</b> locked onto active <b>Stowing lines</b>.</p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+        with sum_col: 
+            st.markdown(f'<div class="summary-card"><h4>📋 SHIFT DEPLOYMENT OVERVIEW</h4><p><b>100 Associates</b> successfully routed. Target volume balanced. <b>{stow_count} Associates</b> locked onto active <b>Stowing lines</b>.</p></div>', unsafe_allow_html=True)
         with btn_col:
             st.write("#### ")
             excel_bytes = convert_df_to_excel(task_directory_df)
             st.download_button(
-                label="Export Schedule to Excel 📊",
-                data=excel_bytes,
-                file_name=f"Warehouse_Shift_Schedule_{datetime.now().strftime('%d-%m-%Y')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                label="Export Schedule to Excel 📊", 
+                data=excel_bytes, 
+                file_name=f"Warehouse_Shift_Schedule_{datetime.now().strftime('%d-%m-%Y')}.xlsx", 
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
                 width="stretch"
             )
         
@@ -297,14 +212,10 @@ with tab2:
             st.dataframe(task_directory_df, width="stretch", height=400)
         with c2:
             st.write("#### 📊 Final Shift Headcount Deployment")
-            final_flat_list = []
-            for t, names in grouped_tasks.items():
-                for name in names:
-                    if name != "": 
-                        final_flat_list.append(t)
-            
+            final_flat_list = [t for t, names in grouped_tasks.items() for name in names if name != ""]
             chart_data = pd.DataFrame({"Task": final_flat_list}).value_counts().reset_index(name="Associate Headcount")
             st.bar_chart(data=chart_data, x="Task", y="Associate Headcount")
 
 st.divider()
-st.caption("Powered by Google Gemini 3.8 Flash & Your Custom Shift Supervisor Local Engine.")
+st.caption("Powered by Your Custom Shift Supervisor Local Engine.")
+
